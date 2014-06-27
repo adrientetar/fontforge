@@ -132,7 +132,7 @@ return( false );
 }
 
 static int compressOrNot(FILE *to,int off_to, FILE *from,int off_from,
-	int len, int forcecompress ) {
+	int len, int forcecompress) {
     char in[CHUNK];
     char out[CHUNK];
     z_stream strm;
@@ -142,68 +142,65 @@ static int compressOrNot(FILE *to,int off_to, FILE *from,int off_from,
     int uncompLen = len;
 
     /* Empty table, nothing to do */
-    if ( len==0 )
-return(0);
+    if (len == 0) return 0;
 
     fseek(from,off_from,SEEK_SET);
     memset(&strm,0,sizeof(strm));
     ret = deflateInit(&strm,Z_DEFAULT_COMPRESSION);
     if ( ret!=Z_OK ) {
-	fprintf( stderr,"Compression initialization failed.\n" );
-return(0);
+	    fprintf( stderr,"Compression initialization failed.\n" );
+        return 0;
     }
     tmp = tmpfile();
 
     do {
-	if ( len<=0 ) {
+	    if ( len<=0 ) {
             (void)deflateEnd(&strm);
-    break;
+            break;
         }
-	amount = len;
-	if ( amount>CHUNK )
-	    amount = CHUNK;
+	    amount = len;
+	    if ( amount>CHUNK )
+	        amount = CHUNK;
         strm.avail_in = fread(in, 1, amount, from);
-	len -= strm.avail_in;
+	    len -= strm.avail_in;
         if (ferror(from)) {
             (void)deflateEnd(&strm);
-	    fprintf( stderr, "IO error.\n" );
-    break;
+	        fprintf( stderr, "IO error.\n" );
+            break;
         }
-        if (strm.avail_in == 0)
-    break;
+        if (strm.avail_in == 0) break;
         strm.next_in = in;
         do {
             strm.avail_out = CHUNK;
             strm.next_out = out;
             ret = deflate(&strm, len==0 ? Z_FINISH : Z_NO_FLUSH);
-	    if ( ret==Z_STREAM_ERROR ) {
-		(void)deflateEnd(&strm);
-		fprintf( stderr, "Compression failed somehow.\n");
-		err = 1;
-	break;
-	    }
-	    amount = CHUNK - strm.avail_out;
-	    if ( fwrite(out,1,amount,tmp)!= amount || ferror(tmp) ) {
-		(void)deflateEnd(&strm);
-		fprintf( stderr, "IO Error.\n");
-		err=1;
-	break;
-	    }
-	} while ( strm.avail_out==0 );
-	if ( err )
-    break;
+	        if ( ret==Z_STREAM_ERROR ) {
+	    	    (void)deflateEnd(&strm);
+	    	    fprintf( stderr, "Compression failed somehow.\n");
+	    	    err = 1;
+	            break;
+	        }
+	        amount = CHUNK - strm.avail_out;
+	        if ( fwrite(out,1,amount,tmp)!= amount || ferror(tmp) ) {
+	    	    (void)deflateEnd(&strm);
+	    	    fprintf( stderr, "IO Error.\n");
+	    	    err=1;
+	            break;
+	        }
+	    } while ( strm.avail_out==0 );
+	    if ( err ) break;
     } while ( ret!=Z_STREAM_END );
     (void)deflateEnd(&strm);
 
     if ( strm.total_out>=uncompLen ) {
-	/* Didn't actually make the data smaller, so store uncompressed */
-	fclose(tmp);
-	copydata(to,off_to,from,off_from,uncompLen);
-return( uncompLen );
+	    /* Didn't actually make the data smaller, so store uncompressed */
+	    fclose(tmp);
+	    copydata(to,off_to,from,off_from,uncompLen);
+        return( uncompLen );
     } else {
-	copydata(to,off_to,tmp,0,strm.total_out);
-	fclose(tmp);
-return( strm.total_out );
+	    copydata(to,off_to,tmp,0,strm.total_out);
+	    fclose(tmp);
+        return( strm.total_out );
     }
 }
 
@@ -323,21 +320,21 @@ return( NULL );
     /*  set of offsets and I must figure it out for myself */
     /* Usually, I don't care. But if fontlint is on, then do it right */
     if ( (openflags & of_fontlint) && head_pos!=-1 ) {
-	int checksum;
-	fseek(sfnt,head_pos+8,SEEK_SET);
-	putlong(sfnt,0);		/* Clear what was there */
-	checksum = filechecksum(sfnt);	/* Recalc */
-	checksum = 0xb1b0afba-checksum;
-	fseek(sfnt,head_pos+8,SEEK_SET);
-	putlong(sfnt,checksum);
+	    int checksum;
+	    fseek(sfnt,head_pos+8,SEEK_SET);
+	    putlong(sfnt,0);		/* Clear what was there */
+	    checksum = filechecksum(sfnt);	/* Recalc */
+	    checksum = 0xb1b0afba-checksum;
+	    fseek(sfnt,head_pos+8,SEEK_SET);
+	    putlong(sfnt,checksum);
     }
     rewind(sfnt);
     sf = _SFReadTTF(sfnt,flags,openflags,filename,fd);
     fclose(sfnt);
 
     if ( sf!=NULL ) {
-	sf->woffMajor = major;
-	sf->woffMinor = minor;
+	    sf->woffMajor = major;
+	    sf->woffMinor = minor;
     }
 
     if ( sf!=NULL && metaOffset!=0 ) {
@@ -353,7 +350,27 @@ return( NULL );
     }
 
 return( sf );
-}	
+}
+
+int32 chunkchecksum(FILE *file, int offset, int len) {
+    uint32 sum = 0, chunk;
+    int ch1, ch2, ch3, ch4;
+
+    fseek(file,offset,SEEK_SET);
+    for (int i = 0; i < len/4; ++i) {
+        ch1 = getc(file);
+        ch2 = getc(file);
+        ch3 = getc(file);
+        ch4 = getc(file);
+	    if (ch4 == EOF) return EOF;
+	    if ( feof(file) || ferror(file)) {
+	    	LogError(_("This is bad."));
+            break;
+        }
+	    sum += (ch1<<24)|(ch2<<16)|(ch3<<8)|ch4;
+    }
+    return sum;
+}
 
 int _WriteWOFFFont(FILE *woff,SplineFont *sf, enum fontformat format,
 	int32 *bsizes, enum bitmapformat bf,int flags,EncMap *enc,int layer) {
@@ -366,29 +383,31 @@ int _WriteWOFFFont(FILE *woff,SplineFont *sf, enum fontformat format,
     int compLen, uncompLen, newoffset;
     int tag, checksum, offset;
     int tab_start, here;
+    int chksm = 0;
 
+    /* If we did not set version from a pre-existing WOFF, calculate it now. */
     if ( major==woffUnset ) {
-	struct ttflangname *useng;
-	major = 1; minor = 0;
-	for ( useng=sf->names; useng!=NULL; useng=useng->next )
-	    if ( useng->lang==0x409 )
-	break;
-	if ( useng!=NULL && useng->names[ttf_version]!=NULL &&
-		sscanf(useng->names[ttf_version], "Version %d.%d", &major, &minor)>=1 ) {
-	    /* All done */
-	} else if ( sf->subfontcnt!=0 ) {
-	    major = floor(sf->cidversion);
-	    minor = floor(1000.*(sf->cidversion-major));
-	} else if ( sf->version!=NULL ) {
-	    char *pt=sf->version;
-	    char *end;
-	    while ( *pt && !isdigit(*pt) && *pt!='.' ) ++pt;
-	    if ( *pt ) {
-		major = strtol(pt,&end,10);
-		if ( *end=='.' )
-		    minor = strtol(end+1,NULL,10);
+	    struct ttflangname *useng;
+	    major = 1; minor = 0;
+	    for ( useng=sf->names; useng!=NULL; useng=useng->next )
+	        if ( useng->lang==0x409 )
+	            break;
+	    if ( useng!=NULL && useng->names[ttf_version]!=NULL &&
+	      sscanf(useng->names[ttf_version], "Version %d.%d", &major, &minor)>=1 ) {
+	        /* All done */
+	    } else if ( sf->subfontcnt!=0 ) {
+	        major = floor(sf->cidversion);
+	        minor = floor(1000.*(sf->cidversion-major));
+	    } else if ( sf->version!=NULL ) {
+	        char *pt=sf->version;
+	        char *end;
+	        while ( *pt && !isdigit(*pt) && *pt!='.' ) ++pt;
+	        if ( *pt ) {
+	    	    major = strtol(pt,&end,10);
+	    	    if ( *end=='.' )
+	    	        minor = strtol(end+1,NULL,10);
+	        }
 	    }
-	}
     }
 
     format = sf->subfonts!=NULL ? ff_otfcid :
@@ -396,8 +415,8 @@ int _WriteWOFFFont(FILE *woff,SplineFont *sf, enum fontformat format,
     sfnt = tmpfile();
     ret = _WriteTTFFont(sfnt,sf,format,bsizes,bf,flags,enc,layer);
     if ( !ret ) {
-	fclose(sfnt);
-return( ret );
+	    fclose(sfnt);
+        return ret;
     }
 
     fseek(sfnt,0,SEEK_END);
@@ -405,9 +424,9 @@ return( ret );
     rewind(sfnt);
 
     flavour = getlong(sfnt);
-    /* The woff standard says we should accept all flavours of sfnt, so can't */
-    /*  test flavour to make sure we've got a valid sfnt */
-    /* But we can test the rest of the header for consistancy */
+    /* The WOFF standard says we should accept all flavours of sfnt, so can't
+     * test flavour to make sure we've got a valid sfnt.
+     * But we can test the rest of the header for consistency. */
     num_tabs = getushort(sfnt);
     (void) getushort(sfnt);
     (void) getushort(sfnt);
@@ -418,7 +437,7 @@ return( ret );
     putlong(woff,flavour);
     putlong(woff,0);		/* Off: 8. total length of file, fill in later */
     putshort(woff,num_tabs);
-    putshort(woff,0);		/* Must be zero */
+    putshort(woff,0);		/* Reserved field, must be zero */
     putlong(woff,filelen);
     putshort(woff,major);	/* Major and minor version numbers of font */
     putshort(woff,minor);
@@ -428,64 +447,127 @@ return( ret );
     putlong(woff,0);		/* Off: 36. Offset to private data */
     putlong(woff,0);		/* Off: 40. Length of private data */
 
+    /* Reserve place for 5 WOFF container headers. */
     tab_start = ftell(woff);
     for ( i=0; i<5*num_tabs; ++i )
-	putlong(woff,0);
+	    putlong(woff,0);
 
+    FILE *wbuf = tmpfile();
+    int woff_content = ftell(woff);
+    int sfnt_content = ftell(sfnt);
+    int wbuf_start = 0;
     for ( i=0; i<num_tabs; ++i ) {
-	tag = getlong(sfnt);
-	checksum = getlong(sfnt);
-	offset = getlong(sfnt);
-	uncompLen = getlong(sfnt);
-	here = ftell(sfnt);
-	newoffset = ftell(woff);
-	compLen = compressOrNot(woff,newoffset,sfnt,offset,uncompLen,false);
-	if ( (ftell(woff)&3)!=0 ) {
-	    /* Pad to a 4 byte boundary */
-	    if ( ftell(woff)&1 )
-		putc('\0',woff);
-	    if ( ftell(woff)&2 )
-		putshort(woff,0);
-	}
-	fseek(sfnt,here,SEEK_SET);
-	fseek(woff,tab_start,SEEK_SET);
-	putlong(woff,tag);
-	putlong(woff,newoffset);
-	putlong(woff,compLen);
-	putlong(woff,uncompLen);
-	putlong(woff,checksum);
-	tab_start = ftell(woff);
-	fseek(woff,0,SEEK_END);
+    	/* Below, we first extract the attributes of the originating
+    	 * spline data in order to pass them to the copy function. */
+	    tag = getlong(sfnt);
+	    checksum = getlong(sfnt);
+	    offset = getlong(sfnt);
+	    uncompLen = getlong(sfnt);
+
+	    here = ftell(sfnt);
+	    newoffset = ftell(wbuf);
+	    /* This checks if compression is necessary then sets 
+	     * compressed len and copies TTF table data. */
+	    compLen = compressOrNot(wbuf,newoffset,sfnt,offset,uncompLen,false);
+	    if ( (ftell(wbuf)&3)!=0 ) {
+	        /* Pad to a 4 byte boundary */
+	        if ( ftell(wbuf)&1 )
+	    	    putc('\0',wbuf);
+	        if ( ftell(wbuf)&2 )
+	    	    putshort(wbuf,0);
+	    }
+	    /* Add bulk checksum. */
+	    chksm += tag + checksum + offset + uncompLen;
+	    /* Add TTF's Adjustment checksum. */
+	    chksm += chunkchecksum(sfnt,offset,uncompLen);
+	    /* Go back to the WOFF headers spot and fill in the 5 headers
+	     * reserved previously. */
+	    fseek(sfnt,here,SEEK_SET);
+	    fseek(wbuf,tab_start,SEEK_SET);
+	    putlong(wbuf,tag);
+	    putlong(wbuf,newoffset);
+	    putlong(wbuf,compLen);
+	    putlong(wbuf,uncompLen);
+	    putlong(wbuf,checksum);
+	    wbuf_start = ftell(wbuf);
+	    fseek(wbuf,0,SEEK_END);
+    }
+    fclose(wbuf);
+
+    chksm += chunkchecksum(woff, 0, 44);
+	chksm = 0xb1b0afba-chksm;
+
+    fseek(woff,woff_content,SEEK_SET);
+    fseek(sfnt,sfnt_content,SEEK_SET);
+    for ( i=0; i<num_tabs; ++i ) {
+    	/* Below, we first extract the attributes of the originating
+    	 * spline data in order to pass them to the copy function. */
+	    tag = getlong(sfnt);
+	    checksum = getlong(sfnt);
+	    offset = getlong(sfnt);
+	    uncompLen = getlong(sfnt);
+
+	    here = ftell(sfnt);
+	    newoffset = ftell(woff);
+	    if (tag==CHR('h','e','a','d')) {
+	    	fseek(sfnt,here+8,SEEK_SET);
+	    	putlong(sfnt,chksm);
+	    	fseek(sfnt,here,SEEK_SET); // might be unnecessary
+	    }
+	    /* This checks if compression is necessary then sets 
+	     * compressed len and copies TTF table data. */
+	    compLen = compressOrNot(woff,newoffset,sfnt,offset,uncompLen,false);
+	    if ( (ftell(woff)&3)!=0 ) {
+	        /* Pad to a 4 byte boundary */
+	        if ( ftell(woff)&1 )
+	    	    putc('\0',woff);
+	        if ( ftell(woff)&2 )
+	    	    putshort(woff,0);
+	    }
+	    /* Go back to the WOFF headers spot and fill in the 5 headers
+	     * reserved previously. */
+	    fseek(sfnt,here,SEEK_SET);
+	    fseek(woff,tab_start,SEEK_SET);
+	    putlong(woff,tag);
+	    putlong(woff,newoffset);
+	    putlong(woff,compLen);
+	    putlong(woff,uncompLen);
+	    putlong(woff,checksum);
+	    tab_start = ftell(woff);
+	    fseek(woff,0,SEEK_END);
     }
     fclose(sfnt);
 
+    fseek(woff,0,SEEK_END);
     if ( sf->woffMetadata!= NULL ) {
-	int uncomplen = strlen(sf->woffMetadata);
-	uLongf complen = 2*uncomplen;
-	char *temp=malloc(complen+1);
-	newoffset = ftell(woff);
-	compress(temp,&complen,sf->woffMetadata,uncomplen);
-	fwrite(temp,1,complen,woff);
-	free(temp);
-	if ( (ftell(woff)&3)!=0 ) {
-	    /* Pad to a 4 byte boundary */
-	    if ( ftell(woff)&1 )
-		putc('\0',woff);
-	    if ( ftell(woff)&2 )
-		putshort(woff,0);
-	}
-	fseek(woff,24,SEEK_SET);
-	putlong(woff,newoffset);
-	putlong(woff,complen);
-	putlong(woff,uncomplen);
-	fseek(woff,0,SEEK_END);
+	    int uncomplen = strlen(sf->woffMetadata);
+	    uLongf complen = 2*uncomplen;
+	    char *temp=malloc(complen+1);
+	    newoffset = ftell(woff);
+	    compress(temp,&complen,sf->woffMetadata,uncomplen);
+	    fwrite(temp,1,complen,woff);
+	    free(temp);
+	    if ( (ftell(woff)&3)!=0 ) {
+	        /* Pad to a 4 byte boundary */
+	        if ( ftell(woff)&1 )
+	    	    putc('\0',woff);
+	        if ( ftell(woff)&2 )
+	    	    putshort(woff,0);
+	    }
+    
+	    fseek(woff,24,SEEK_SET);
+	    putlong(woff,newoffset);
+	    putlong(woff,complen);
+	    putlong(woff,uncomplen);
+	    fseek(woff,0,SEEK_END);
     }
 
     fseek(woff,0,SEEK_END);
     len = ftell(woff);
     fseek(woff,8,SEEK_SET);
     putlong(woff,len);
-return( true );		/* No errors */
+
+    return true;		/* No errors */
 }
 
 int WriteWOFFFont(char *fontname,SplineFont *sf, enum fontformat format,
@@ -495,10 +577,10 @@ int WriteWOFFFont(char *fontname,SplineFont *sf, enum fontformat format,
 
     if ( strstr(fontname,"://")!=NULL ) {
 	if (( woff = tmpfile())==NULL )
-return( 0 );
+        return 0;
     } else {
 	if (( woff=fopen(fontname,"wb+"))==NULL )
-return( 0 );
+        return 0;
     }
     ret = _WriteWOFFFont(woff,sf,format,bsizes,bf,flags,enc,layer);
     if ( strstr(fontname,"://")!=NULL && ret )

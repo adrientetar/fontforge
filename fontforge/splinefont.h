@@ -2934,6 +2934,7 @@ extern void SFFlatten(SplineFont *cidmaster);
 extern int  SFFlattenByCMap(SplineFont *sf,char *cmapname);
 extern SplineFont *MakeCIDMaster(SplineFont *sf,EncMap *oldmap,int bycmap,char *cmapfilename,struct cidmap *cidmap);
 
+int getuint32(FILE *ttf);
 int getushort(FILE *ttf);
 int32 getlong(FILE *ttf);
 int get3byte(FILE *ttf);
