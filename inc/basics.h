@@ -27,7 +27,7 @@
 #ifndef _BASICS_H
 #define _BASICS_H
 
-#include <fontforge-config.h>
+#include <config.h>
 #include <stdio.h>		/* for NULL */
 #ifdef HAVE_STDINT_H
 #include <stdint.h>

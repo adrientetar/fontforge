@@ -50,14 +50,14 @@
  * LineBreak.txt, NamesList.txt, PropList.txt,UnicodeData.txt, and the
  * binary executable file makeutype as they are no longer needed now.
  */
-#include <fontforge-config.h>
+#include <config.h>
 
 
 /* Build a ctype array out of the UnicodeData.txt and PropList.txt files */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <basics.h>
+#include <inc/basics.h>
 
 /*#define MAXC		0x600		/* Last upper/lower case dicodomy is Armenian 0x580, er, nope. 1fff (greek and latin extended) then full-width 0xff00 */
 #define MAXC	65536
