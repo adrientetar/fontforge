@@ -1039,6 +1039,27 @@ void _FVMenuOpen(FontView *fv) {
 	if ( temp==NULL )
 return;
 	eod = strrchr(temp,'/');
+#if defined(__MINGW32__)
+	if ( eod==NULL ) {
+	    /* No slash, probably a drive letter. */
+            if (temp[1] == ':') {
+		free(OpenDir);
+		OpenDir = temp;
+		continue;
+	    }
+	    return;
+	}
+#else
+	if ( eod==NULL )
+	    return;
+#endif
+	if ( eod+1=='\0' ) {
+	    /* Folder path without file? Browse to it. */
+	    /* TODO: does this exclude UFO properly? */
+	    free(OpenDir);
+	    OpenDir = temp;
+	    continue;
+	}
 	*eod = '\0';
 	file = eod+1;
 	do {
